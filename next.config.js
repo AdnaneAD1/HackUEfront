@@ -1,10 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Remove static export since we need client-side features
   eslint: {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
+  // Remove experimental features that are causing issues
+  experimental: {
+    swcMinify: true
+  }
 };
 
 module.exports = nextConfig;
