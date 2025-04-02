@@ -5,7 +5,9 @@ import DashboardLayout from '@/components/dashboard-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Bell, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast";
+import { cn } from '@/lib/utils';
+import { useDeviceType } from '@/hooks/use-device-type';
 
 const mockNotifications = [
   {
@@ -37,17 +39,19 @@ const mockNotifications = [
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState(mockNotifications);
   const { toast } = useToast();
+  const deviceType = useDeviceType();
+  const isMobile = deviceType === 'mobile';
 
   const getIcon = (type) => {
     switch (type) {
       case 'urgent':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
+        return <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />;
       case 'reminder':
-        return <Clock className="h-5 w-5 text-blue-500" />;
+        return <Clock className="h-5 w-5 text-blue-500 shrink-0" />;
       case 'info':
-        return <Bell className="h-5 w-5 text-gray-500" />;
+        return <Bell className="h-5 w-5 text-gray-500 shrink-0" />;
       default:
-        return <Bell className="h-5 w-5" />;
+        return <Bell className="h-5 w-5 shrink-0" />;
     }
   };
 
@@ -85,9 +89,16 @@ export default function NotificationsPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex justify-between items-center mb-6">
+      <div className={cn(
+        "flex justify-between items-center",
+        isMobile ? "mb-4 flex-col gap-3" : "mb-6"
+      )}>
         <h1 className="text-2xl font-bold">Notifications</h1>
-        <Button variant="outline" onClick={markAllAsRead}>
+        <Button 
+          variant="outline" 
+          onClick={markAllAsRead}
+          className={cn(isMobile && "w-full")}
+        >
           <CheckCircle className="mr-2 h-4 w-4" />
           Tout marquer comme lu
         </Button>
@@ -97,25 +108,37 @@ export default function NotificationsPage() {
         {notifications.map((notification) => (
           <Card 
             key={notification.id} 
-            className={`${notification.read ? 'opacity-75' : ''} hover:shadow-md transition-shadow cursor-pointer`}
+            className={cn(
+              notification.read ? 'opacity-75' : '',
+              'hover:shadow-md transition-shadow cursor-pointer'
+            )}
             onClick={() => handleNotificationClick(notification)}
           >
-            <CardContent className="flex items-start p-6">
-              <div className="mr-4 mt-1">
+            <CardContent className={cn(
+              "flex items-start p-4 md:p-6",
+              isMobile ? "gap-3" : "gap-4"
+            )}>
+              <div className="mt-1">
                 {getIcon(notification.type)}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">{notification.title}</h3>
-                  <span className="text-sm text-gray-500">{notification.date}</span>
+              <div className="flex-1 min-w-0">
+                <div className={cn(
+                  "flex items-center justify-between",
+                  isMobile && "flex-col items-start gap-1"
+                )}>
+                  <h3 className="font-semibold truncate">{notification.title}</h3>
+                  <span className="text-sm text-gray-500 shrink-0">{notification.date}</span>
                 </div>
-                <p className="mt-1 text-gray-600">{notification.message}</p>
+                <p className="mt-1 text-gray-600 line-clamp-2">{notification.message}</p>
               </div>
               {!notification.read && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="ml-4"
+                  className={cn(
+                    "shrink-0",
+                    isMobile && "hidden"
+                  )}
                   onClick={(e) => {
                     e.stopPropagation();
                     markAsRead(notification.id);

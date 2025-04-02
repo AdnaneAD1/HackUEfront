@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { 
   LayoutDashboard, 
@@ -9,68 +9,198 @@ import {
   Bell,
   Settings,
   LogOut,
-  GitBranch
+  GitBranch,
+  Menu
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import { cn } from '@/lib/utils'
+import { ResponsiveWrapper } from './responsive-wrapper'
+import { MobileNavigation } from './mobile-navigation'
+import { useSwipeable } from 'react-swipeable'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useDeviceType } from '@/hooks/use-device-type'
 
 export default function DashboardLayout({ children }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const deviceType = useDeviceType()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(deviceType === 'desktop')
   const router = useRouter()
+  const pathname = usePathname()
+
+  useEffect(() => {
+    setIsSidebarOpen(deviceType === 'desktop')
+  }, [deviceType])
+
+  const handlers = useSwipeable({
+    onSwipedRight: () => setIsSidebarOpen(true),
+    onSwipedLeft: () => setIsSidebarOpen(false),
+    trackMouse: true
+  });
 
   const handleLogout = () => {
     router.push('/')
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 bg-card shadow-lg w-64 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-200 ease-in-out border-r border-border`}>
-        <div className="h-16 flex items-center justify-center border-b border-border">
-          <h1 className="text-xl font-bold text-primary">Gestion MRC</h1>
-        </div>
-        <nav className="mt-6 px-4">
-          <Link href="/dashboard" className="flex items-center px-4 py-2 text-foreground hover:bg-accent rounded-lg">
-            <LayoutDashboard className="h-5 w-5 mr-3" />
-            Tableau de Bord
-          </Link>
-          <Link href="/patients" className="flex items-center px-4 py-2 mt-2 text-foreground hover:bg-accent rounded-lg">
-            <Users className="h-5 w-5 mr-3" />
-            Patients
-          </Link>
-          <Link href="/dossiers" className="flex items-center px-4 py-2 mt-2 text-foreground hover:bg-accent rounded-lg">
-            <FileText className="h-5 w-5 mr-3" />
-            Dossiers Médicaux
-          </Link>
-          <Link href="/workflows" className="flex items-center px-4 py-2 mt-2 text-foreground hover:bg-accent rounded-lg">
-            <GitBranch className="h-5 w-5 mr-3" />
-            Workflows
-          </Link>
-          <Link href="/notifications" className="flex items-center px-4 py-2 mt-2 text-foreground hover:bg-accent rounded-lg">
-            <Bell className="h-5 w-5 mr-3" />
-            Notifications
-          </Link>
-          <Link href="/parametres" className="flex items-center px-4 py-2 mt-2 text-foreground hover:bg-accent rounded-lg">
-            <Settings className="h-5 w-5 mr-3" />
-            Paramètres
-          </Link>
-          <Button 
-            variant="ghost" 
-            className="flex items-center px-4 py-2 mt-8 text-destructive hover:bg-destructive/10 rounded-lg w-full"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-5 w-5 mr-3" />
-            Déconnexion
-          </Button>
-        </nav>
-      </aside>
+  const isActive = (path) => {
+    if (path === '/dashboard') {
+      return pathname === path
+    }
+    return pathname.startsWith(path)
+  }
 
-      {/* Main content */}
-      <main className={`${isSidebarOpen ? 'ml-64' : 'ml-0'} transition-margin duration-200 ease-in-out bg-background min-h-screen`}>
-        <div className="p-8">
-          {children}
-        </div>
-      </main>
+  const navigationItems = [
+    {
+      href: '/dashboard',
+      icon: LayoutDashboard,
+      label: 'Tableau de Bord'
+    },
+    {
+      href: '/patients',
+      icon: Users,
+      label: 'Patients'
+    },
+    {
+      href: '/dossiers',
+      icon: FileText,
+      label: 'Dossiers Médicaux'
+    },
+    {
+      href: '/workflows',
+      icon: GitBranch,
+      label: 'Workflows'
+    },
+    {
+      href: '/notifications',
+      icon: Bell,
+      label: 'Notifications'
+    },
+    {
+      href: '/parametres',
+      icon: Settings,
+      label: 'Paramètres'
+    }
+  ]
+
+  const handleNavClick = () => {
+    if (deviceType === 'mobile') {
+      setIsSidebarOpen(false)
+    }
+  }
+
+  const DesktopSidebar = (
+    <aside 
+      className={cn(
+        "fixed inset-y-0 left-0 bg-card shadow-lg w-64 transform transition-transform duration-200 ease-in-out border-r border-border z-30",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
+      <div className="h-16 flex items-center justify-between px-4 border-b border-border bg-primary">
+        <h1 className="text-xl font-bold text-primary-foreground">CKDCARE</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden text-primary-foreground"
+          onClick={() => setIsSidebarOpen(false)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+      <nav className="mt-6 px-4">
+        {navigationItems.map((item) => {
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center px-4 py-2 mt-2 rounded-lg transition-colors",
+                isActive(item.href)
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+              onClick={handleNavClick}
+            >
+              <Icon className="h-5 w-5 mr-3" />
+              {item.label}
+            </Link>
+          )
+        })}
+        <Button 
+          variant="ghost" 
+          className="flex items-center px-4 py-2 mt-8 text-destructive hover:bg-destructive/10 rounded-lg w-full"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-5 w-5 mr-3" />
+          Déconnexion
+        </Button>
+      </nav>
+    </aside>
+  )
+
+  const MobileHeader = (
+    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-20 flex items-center px-4">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="mr-4"
+        onClick={() => setIsSidebarOpen(true)}
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+      <h1 className="text-xl font-bold">CKDCARE</h1>
+    </header>
+  )
+
+  return (
+    <div className="min-h-screen bg-background" {...handlers}>
+      <ResponsiveWrapper
+        mobile={
+          <>
+            {MobileHeader}
+            <AnimatePresence>
+              {isSidebarOpen && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.5 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black z-20"
+                    onClick={() => setIsSidebarOpen(false)}
+                  />
+                  <motion.div
+                    initial={{ x: "-100%" }}
+                    animate={{ x: 0 }}
+                    exit={{ x: "-100%" }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className="fixed inset-y-0 left-0 w-64 z-30"
+                  >
+                    {DesktopSidebar}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+            <main className="pt-16 pb-16">
+              <div className="p-4">
+                {children}
+              </div>
+            </main>
+            <MobileNavigation />
+          </>
+        }
+        desktop={
+          <>
+            {DesktopSidebar}
+            <main className={cn(
+              "transition-all duration-200 ease-in-out min-h-screen bg-background",
+              isSidebarOpen ? "ml-64" : "ml-0"
+            )}>
+              <div className="p-8">
+                {children}
+              </div>
+            </main>
+          </>
+        }
+      />
     </div>
   )
 }

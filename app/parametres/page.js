@@ -9,10 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Bell, Shield, Palette } from 'lucide-react';
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/components/ui/use-toast";
+import { cn } from '@/lib/utils';
+import { useDeviceType } from '@/hooks/use-device-type';
 
 export default function ParametresPage() {
   const { toast } = useToast();
+  const deviceType = useDeviceType();
+  const isMobile = deviceType === 'mobile';
+
   const [notifications, setNotifications] = useState({
     email: true,
     desktop: true,
@@ -90,22 +95,25 @@ export default function ParametresPage() {
       </div>
 
       <Tabs defaultValue="compte" className="space-y-4">
-        <TabsList>
+        <TabsList className={cn(
+          "w-full justify-start",
+          isMobile && "overflow-x-auto flex-nowrap"
+        )}>
           <TabsTrigger value="compte" className="flex items-center">
-            <User className="mr-2 h-4 w-4" />
-            Compte
+            <User className="h-4 w-4 mr-2" />
+            <span className={cn(isMobile && "hidden")}>Compte</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications">
-            <Bell className="mr-2 h-4 w-4" />
-            Notifications
+          <TabsTrigger value="notifications" className="flex items-center">
+            <Bell className="h-4 w-4 mr-2" />
+            <span className={cn(isMobile && "hidden")}>Notifications</span>
           </TabsTrigger>
-          <TabsTrigger value="securite">
-            <Shield className="mr-2 h-4 w-4" />
-            Sécurité
+          <TabsTrigger value="securite" className="flex items-center">
+            <Shield className="h-4 w-4 mr-2" />
+            <span className={cn(isMobile && "hidden")}>Sécurité</span>
           </TabsTrigger>
-          <TabsTrigger value="apparence">
-            <Palette className="mr-2 h-4 w-4" />
-            Apparence
+          <TabsTrigger value="apparence" className="flex items-center">
+            <Palette className="h-4 w-4 mr-2" />
+            <span className={cn(isMobile && "hidden")}>Apparence</span>
           </TabsTrigger>
         </TabsList>
 
@@ -140,7 +148,12 @@ export default function ParametresPage() {
                   onChange={(e) => setUserInfo({...userInfo, specialite: e.target.value})}
                 />
               </div>
-              <Button onClick={handleSaveProfile}>Sauvegarder les modifications</Button>
+              <Button 
+                onClick={handleSaveProfile}
+                className={cn(isMobile && "w-full")}
+              >
+                Sauvegarder les modifications
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -150,8 +163,11 @@ export default function ParametresPage() {
             <CardHeader>
               <CardTitle>Préférences de Notifications</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+            <CardContent className="space-y-6">
+              <div className={cn(
+                "flex items-center justify-between",
+                isMobile && "flex-col items-start gap-4"
+              )}>
                 <div className="space-y-0.5">
                   <Label>Notifications par email</Label>
                   <p className="text-sm text-muted-foreground">
@@ -163,7 +179,10 @@ export default function ParametresPage() {
                   onCheckedChange={(checked) => handleNotificationChange('email', checked)}
                 />
               </div>
-              <div className="flex items-center justify-between">
+              <div className={cn(
+                "flex items-center justify-between",
+                isMobile && "flex-col items-start gap-4"
+              )}>
                 <div className="space-y-0.5">
                   <Label>Notifications bureau</Label>
                   <p className="text-sm text-muted-foreground">
@@ -175,10 +194,12 @@ export default function ParametresPage() {
                   onCheckedChange={(checked) => handleNotificationChange('desktop', checked)}
                 />
               </div>
-              <div className="flex items-center justify-between">
+              <div className={cn(
+                "flex items-center justify-between",
+                isMobile && "flex-col items-start gap-4"
+              )}>
                 <div className="space-y-0.5">
                   <Label>Alertes urgentes</Label>
-                
                   <p className="text-sm text-muted-foreground">
                     Notifications pour les cas urgents
                   </p>
@@ -225,7 +246,12 @@ export default function ParametresPage() {
                   onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
                 />
               </div>
-              <Button onClick={handlePasswordChange}>Changer le mot de passe</Button>
+              <Button 
+                onClick={handlePasswordChange}
+                className={cn(isMobile && "w-full")}
+              >
+                Changer le mot de passe
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -235,25 +261,31 @@ export default function ParametresPage() {
             <CardHeader>
               <CardTitle>Apparence</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
+            <CardContent>
+              <div className="space-y-4">
                 <Label>Thème</Label>
-                <div className="flex space-x-2">
+                <div className={cn(
+                  "flex gap-2",
+                  isMobile ? "flex-col" : "flex-row"
+                )}>
                   <Button 
                     variant={theme === 'light' ? 'default' : 'outline'}
                     onClick={() => handleThemeChange('light')}
+                    className={cn(isMobile && "w-full")}
                   >
                     Clair
                   </Button>
                   <Button 
                     variant={theme === 'dark' ? 'default' : 'outline'}
                     onClick={() => handleThemeChange('dark')}
+                    className={cn(isMobile && "w-full")}
                   >
                     Sombre
                   </Button>
                   <Button 
                     variant={theme === 'system' ? 'default' : 'outline'}
                     onClick={() => handleThemeChange('system')}
+                    className={cn(isMobile && "w-full")}
                   >
                     Système
                   </Button>
