@@ -151,55 +151,60 @@ export default function DashboardLayout({ children }) {
     </header>
   )
 
+  const mobileLayout = (
+    <>
+      {MobileHeader}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black z-20"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-64 z-30"
+            >
+              {DesktopSidebar}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      <main className="pt-16 pb-16">
+        <div className="p-4">
+          {children}
+        </div>
+      </main>
+      <MobileNavigation />
+    </>
+  )
+
+  const desktopLayout = (
+    <>
+      {DesktopSidebar}
+      <main className={cn(
+        "transition-all duration-200 ease-in-out min-h-screen bg-background",
+        isSidebarOpen ? "ml-64" : "ml-0"
+      )}>
+        <div className="p-8">
+          {children}
+        </div>
+      </main>
+    </>
+  )
+
   return (
     <div className="min-h-screen bg-background" {...handlers}>
       <ResponsiveWrapper
-        mobile={
-          <>
-            {MobileHeader}
-            <AnimatePresence>
-              {isSidebarOpen && (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.5 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black z-20"
-                    onClick={() => setIsSidebarOpen(false)}
-                  />
-                  <motion.div
-                    initial={{ x: "-100%" }}
-                    animate={{ x: 0 }}
-                    exit={{ x: "-100%" }}
-                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                    className="fixed inset-y-0 left-0 w-64 z-30"
-                  >
-                    {DesktopSidebar}
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-            <main className="pt-16 pb-16">
-              <div className="p-4">
-                {children}
-              </div>
-            </main>
-            <MobileNavigation />
-          </>
-        }
-        desktop={
-          <>
-            {DesktopSidebar}
-            <main className={cn(
-              "transition-all duration-200 ease-in-out min-h-screen bg-background",
-              isSidebarOpen ? "ml-64" : "ml-0"
-            )}>
-              <div className="p-8">
-                {children}
-              </div>
-            </main>
-          </>
-        }
+        mobile={mobileLayout}
+        tablet={mobileLayout}
+        desktop={desktopLayout}
       />
     </div>
   )

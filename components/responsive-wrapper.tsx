@@ -25,6 +25,11 @@ export function MobileOnly({ children }: { children: ReactNode }) {
   return deviceType === 'mobile' ? <>{children}</> : null;
 }
 
+export function TabletOnly({ children }: { children: ReactNode }) {
+  const deviceType = useDeviceType();
+  return deviceType === 'tablet' ? <>{children}</> : null;
+}
+
 export function DesktopOnly({ children }: { children: ReactNode }) {
   const deviceType = useDeviceType();
   return deviceType === 'desktop' ? <>{children}</> : null;
