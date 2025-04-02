@@ -15,7 +15,12 @@ export default function RootLayout({ children }) {
         <meta name="description" content="Plateforme médicale dédiée à la gestion des patients atteints de Maladie Rénale Chronique (MRC)" />
       </head>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light">
+        <ThemeProvider 
+          attribute="class" 
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           {children}
           <Toaster />
         </ThemeProvider>

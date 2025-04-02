@@ -1,23 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, FileText, Plus } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Search, FileText } from 'lucide-react';
 
 const mockDossiers = [
   { id: 1, patient: "Dubois Marie", dateCreation: "15/03/2023", derniereMaj: "12/01/2024", status: "En cours" },
@@ -26,17 +17,12 @@ const mockDossiers = [
 ];
 
 export default function DossiersPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const patientId = searchParams.get('patient');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [dossiers, setDossiers] = useState(mockDossiers);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newDossier, setNewDossier] = useState({
-    patient: '',
-    notes: '',
-    status: 'En cours'
-  });
 
   const handleSearch = (value) => {
     setSearchTerm(value);
@@ -46,78 +32,14 @@ export default function DossiersPage() {
     setDossiers(filtered);
   };
 
-  const handleNewDossier = () => {
-    const newId = dossiers.length + 1;
-    const dossier = {
-      id: newId,
-      ...newDossier,
-      dateCreation: new Date().toLocaleDateString('fr-FR'),
-      derniereMaj: new Date().toLocaleDateString('fr-FR')
-    };
-    setDossiers([...dossiers, dossier]);
-    setNewDossier({ patient: '', notes: '', status: 'En cours' });
-    setDialogOpen(false);
-  };
-
   const handleConsult = (dossierId) => {
-    // This would open a detailed view of the medical record
-    alert(`Consultation du dossier ${dossierId}`);
+    router.push(`/dossiers/${dossierId}`);
   };
 
   return (
     <DashboardLayout>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Dossiers Médicaux</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau Dossier
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Créer un nouveau dossier</DialogTitle>
-              <DialogDescription>
-                Remplissez les informations du dossier médical
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="patient">Patient</Label>
-                <Input
-                  id="patient"
-                  value={newDossier.patient}
-                  onChange={(e) => setNewDossier({...newDossier, patient: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={newDossier.notes}
-                  onChange={(e) => setNewDossier({...newDossier, notes: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Statut</Label>
-                <select
-                  id="status"
-                  className="w-full p-2 border rounded"
-                  value={newDossier.status}
-                  onChange={(e) => setNewDossier({...newDossier, status: e.target.value})}
-                >
-                  <option value="En cours">En cours</option>
-                  <option value="Urgent">Urgent</option>
-                  <option value="Stable">Stable</option>
-                </select>
-              </div>
-              <Button className="w-full" onClick={handleNewDossier}>
-                Créer le dossier
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <Card className="mb-6">
@@ -170,6 +92,7 @@ export default function DossiersPage() {
                       size="sm"
                       onClick={() => handleConsult(dossier.id)}
                     >
+                      <FileText className="h-4 w-4 mr-2" />
                       Consulter
                     </Button>
                   </TableCell>

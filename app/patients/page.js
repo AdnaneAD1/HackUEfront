@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, UserPlus } from 'lucide-react';
+import { Search, UserPlus, Plus, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,26 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
+
+const ANTECEDENT_CATEGORIES = {
+  maladies_chroniques: "Maladies chroniques",
+  allergies: "Allergies",
+  chirurgies: "Chirurgies",
+  hospitalisations: "Hospitalisations",
+  traitements_passes: "Traitements passés",
+  antecedents_familiaux: "Antécédents familiaux",
+  vaccinations: "Vaccinations"
+};
+
+const TREATMENT_CATEGORIES = {
+  medicaments: "Médicaments",
+  therapies: "Thérapies",
+  dispositifs_medicaux: "Dispositifs médicaux",
+  reeducation: "Rééducation",
+  dialyse: "Dialyse",
+  nutrition: "Nutrition",
+  autres: "Autres traitements"
+};
 
 const mockPatients = [
   { 
@@ -33,8 +53,14 @@ const mockPatients = [
     medecinReferent: "Dr. Martin",
     stade: "3", 
     dernierRDV: "12/01/2024",
-    antecedents: "Hypertension, Diabète type 2",
-    traitements: "Insuline, Antihypertenseurs"
+    antecedents: [
+      { categorie: "maladies_chroniques", details: "Hypertension" },
+      { categorie: "maladies_chroniques", details: "Diabète type 2" }
+    ],
+    traitements: [
+      { categorie: "medicaments", details: "Insuline", posologie: "2x/jour" },
+      { categorie: "medicaments", details: "Antihypertenseurs", posologie: "1x/jour" }
+    ]
   },
   { 
     id: 2, 
@@ -48,8 +74,13 @@ const mockPatients = [
     medecinReferent: "Dr. Bernard",
     stade: "4", 
     dernierRDV: "05/01/2024",
-    antecedents: "Insuffisance cardiaque",
-    traitements: "Diurétiques, Bêtabloquants"
+    antecedents: [
+      { categorie: "maladies_chroniques", details: "Insuffisance cardiaque" }
+    ],
+    traitements: [
+      { categorie: "medicaments", details: "Diurétiques", posologie: "1x/jour" },
+      { categorie: "medicaments", details: "Bêtabloquants", posologie: "2x/jour" }
+    ]
   },
   { 
     id: 3, 
@@ -63,8 +94,13 @@ const mockPatients = [
     medecinReferent: "Dr. Dubois",
     stade: "3", 
     dernierRDV: "15/01/2024",
-    antecedents: "Anémie chronique",
-    traitements: "Fer injectable, EPO"
+    antecedents: [
+      { categorie: "maladies_chroniques", details: "Anémie chronique" }
+    ],
+    traitements: [
+      { categorie: "medicaments", details: "Fer injectable", posologie: "1x/semaine" },
+      { categorie: "medicaments", details: "EPO", posologie: "3x/semaine" }
+    ]
   }
 ];
 
@@ -84,8 +120,17 @@ export default function PatientsPage() {
     numeroSecu: '',
     medecinReferent: '',
     stade: '',
-    antecedents: '',
-    traitements: ''
+    antecedents: [],
+    traitements: []
+  });
+  const [nouvelAntecedent, setNouvelAntecedent] = useState({
+    categorie: '',
+    details: ''
+  });
+  const [nouveauTraitement, setNouveauTraitement] = useState({
+    categorie: '',
+    details: '',
+    posologie: ''
   });
 
   const handleSearch = (value) => {
@@ -99,7 +144,6 @@ export default function PatientsPage() {
   };
 
   const handleNewPatient = () => {
-    // Validation basique
     if (!newPatient.nom || !newPatient.prenom || !newPatient.dateNaissance || !newPatient.numeroSecu) {
       toast({
         title: "Erreur de validation",
@@ -126,8 +170,8 @@ export default function PatientsPage() {
       numeroSecu: '',
       medecinReferent: '',
       stade: '',
-      antecedents: '',
-      traitements: ''
+      antecedents: [],
+      traitements: []
     });
     setDialogOpen(false);
     toast({
@@ -138,6 +182,56 @@ export default function PatientsPage() {
 
   const handleViewDossier = (patientId) => {
     router.push(`/dossiers?patient=${patientId}`);
+  };
+
+  const ajouterAntecedent = () => {
+    if (!nouvelAntecedent.categorie || !nouvelAntecedent.details) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner une catégorie et saisir les détails",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setNewPatient({
+      ...newPatient,
+      antecedents: [...newPatient.antecedents, { ...nouvelAntecedent }]
+    });
+    setNouvelAntecedent({ categorie: '', details: '' });
+  };
+
+  const supprimerAntecedent = (index) => {
+    const nouveauxAntecedents = newPatient.antecedents.filter((_, i) => i !== index);
+    setNewPatient({
+      ...newPatient,
+      antecedents: nouveauxAntecedents
+    });
+  };
+
+  const ajouterTraitement = () => {
+    if (!nouveauTraitement.categorie || !nouveauTraitement.details || !nouveauTraitement.posologie) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs du traitement",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setNewPatient({
+      ...newPatient,
+      traitements: [...newPatient.traitements, { ...nouveauTraitement }]
+    });
+    setNouveauTraitement({ categorie: '', details: '', posologie: '' });
+  };
+
+  const supprimerTraitement = (index) => {
+    const nouveauxTraitements = newPatient.traitements.filter((_, i) => i !== index);
+    setNewPatient({
+      ...newPatient,
+      traitements: nouveauxTraitements
+    });
   };
 
   return (
@@ -151,44 +245,47 @@ export default function PatientsPage() {
               Nouveau Patient
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="sticky top-0 bg-background pt-6 pb-4 z-10">
               <DialogTitle>Ajouter un nouveau patient</DialogTitle>
               <DialogDescription>
                 Remplissez les informations du patient
               </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4 py-4 px-1">
               <div className="space-y-2">
-                <Label htmlFor="nom">Nom*</Label>
+                <Label htmlFor="nom" className="font-medium">Nom*</Label>
                 <Input
                   id="nom"
                   value={newPatient.nom}
                   onChange={(e) => setNewPatient({...newPatient, nom: e.target.value})}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="prenom">Prénom*</Label>
+                <Label htmlFor="prenom" className="font-medium">Prénom*</Label>
                 <Input
                   id="prenom"
                   value={newPatient.prenom}
                   onChange={(e) => setNewPatient({...newPatient, prenom: e.target.value})}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dateNaissance">Date de naissance*</Label>
+                <Label htmlFor="dateNaissance" className="font-medium">Date de naissance*</Label>
                 <Input
                   id="dateNaissance"
                   type="date"
                   value={newPatient.dateNaissance}
                   onChange={(e) => setNewPatient({...newPatient, dateNaissance: e.target.value})}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="sexe">Sexe*</Label>
+                <Label htmlFor="sexe" className="font-medium">Sexe*</Label>
                 <select
                   id="sexe"
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
                   value={newPatient.sexe}
                   onChange={(e) => setNewPatient({...newPatient, sexe: e.target.value})}
                 >
@@ -198,40 +295,44 @@ export default function PatientsPage() {
                 </select>
               </div>
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="adresse">Adresse</Label>
+                <Label htmlFor="adresse" className="font-medium">Adresse</Label>
                 <Input
                   id="adresse"
                   value={newPatient.adresse}
                   onChange={(e) => setNewPatient({...newPatient, adresse: e.target.value})}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="telephone">Téléphone</Label>
+                <Label htmlFor="telephone" className="font-medium">Téléphone</Label>
                 <Input
                   id="telephone"
                   type="tel"
                   value={newPatient.telephone}
                   onChange={(e) => setNewPatient({...newPatient, telephone: e.target.value})}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="numeroSecu">Numéro de Sécurité Sociale*</Label>
+                <Label htmlFor="numeroSecu" className="font-medium">Numéro de Sécurité Sociale*</Label>
                 <Input
                   id="numeroSecu"
                   value={newPatient.numeroSecu}
                   onChange={(e) => setNewPatient({...newPatient, numeroSecu: e.target.value})}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="medecinReferent">Médecin Référent</Label>
+                <Label htmlFor="medecinReferent" className="font-medium">Médecin Référent</Label>
                 <Input
                   id="medecinReferent"
                   value={newPatient.medecinReferent}
                   onChange={(e) => setNewPatient({...newPatient, medecinReferent: e.target.value})}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="stade">Stade MRC*</Label>
+                <Label htmlFor="stade" className="font-medium">Stade MRC*</Label>
                 <Input
                   id="stade"
                   type="number"
@@ -239,25 +340,114 @@ export default function PatientsPage() {
                   max="5"
                   value={newPatient.stade}
                   onChange={(e) => setNewPatient({...newPatient, stade: e.target.value})}
+                  className="w-full"
                 />
               </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="antecedents">Antécédents Médicaux</Label>
-                <Textarea
-                  id="antecedents"
-                  value={newPatient.antecedents}
-                  onChange={(e) => setNewPatient({...newPatient, antecedents: e.target.value})}
-                />
+              <div className="space-y-4 col-span-2">
+                <Label className="font-medium">Antécédents Médicaux</Label>
+                <div className="space-y-4">
+                  {newPatient.antecedents.map((antecedent, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                      <div className="flex-1">
+                        <p className="font-medium">{ANTECEDENT_CATEGORIES[antecedent.categorie]}</p>
+                        <p className="text-sm text-gray-600">{antecedent.details}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => supprimerAntecedent(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <select
+                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                        value={nouvelAntecedent.categorie}
+                        onChange={(e) => setNouvelAntecedent({...nouvelAntecedent, categorie: e.target.value})}
+                      >
+                        <option value="">Sélectionner une catégorie</option>
+                        {Object.entries(ANTECEDENT_CATEGORIES).map(([key, value]) => (
+                          <option key={key} value={key}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Détails"
+                        value={nouvelAntecedent.details}
+                        onChange={(e) => setNouvelAntecedent({...nouvelAntecedent, details: e.target.value})}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={ajouterAntecedent}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="traitements">Traitements en cours</Label>
-                <Textarea
-                  id="traitements"
-                  value={newPatient.traitements}
-                  onChange={(e) => setNewPatient({...newPatient, traitements: e.target.value})}
-                />
+              <div className="space-y-4 col-span-2">
+                <Label className="font-medium">Traitements en cours</Label>
+                <div className="space-y-4">
+                  {newPatient.traitements.map((traitement, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                      <div className="flex-1">
+                        <p className="font-medium">{TREATMENT_CATEGORIES[traitement.categorie]}</p>
+                        <p className="text-sm text-gray-600">
+                          {traitement.details}
+                          <span className="ml-2 text-blue-600">({traitement.posologie})</span>
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => supprimerTraitement(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <select
+                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                        value={nouveauTraitement.categorie}
+                        onChange={(e) => setNouveauTraitement({...nouveauTraitement, categorie: e.target.value})}
+                      >
+                        <option value="">Sélectionner une catégorie</option>
+                        {Object.entries(TREATMENT_CATEGORIES).map(([key, value]) => (
+                          <option key={key} value={key}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <Input
+                      placeholder="Nom du traitement"
+                      value={nouveauTraitement.details}
+                      onChange={(e) => setNouveauTraitement({...nouveauTraitement, details: e.target.value})}
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Posologie"
+                        value={nouveauTraitement.posologie}
+                        onChange={(e) => setNouveauTraitement({...nouveauTraitement, posologie: e.target.value})}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={ajouterTraitement}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-2 sticky bottom-0 bg-background pt-4 pb-6">
                 <p className="text-sm text-muted-foreground mb-4">* Champs obligatoires</p>
                 <Button className="w-full" onClick={handleNewPatient}>
                   Ajouter le patient
