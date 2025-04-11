@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, UserPlus, Plus, X } from 'lucide-react';
+import { Search, UserPlus, Plus, X, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
+import { usePatients } from '@/hooks/use-patients';
 
 const ANTECEDENT_CATEGORIES = {
   maladies_chroniques: "Maladies chroniques",
@@ -40,89 +42,28 @@ const TREATMENT_CATEGORIES = {
   autres: "Autres traitements"
 };
 
-const mockPatients = [
-  { 
-    id: 1, 
-    nom: "Dubois", 
-    prenom: "Marie", 
-    dateNaissance: "1965-03-15", 
-    sexe: "F",
-    adresse: "123 Rue de Paris, 75001 Paris",
-    telephone: "0123456789",
-    numeroSecu: "165037512345678",
-    medecinReferent: "Dr. Martin",
-    stade: "3", 
-    dernierRDV: "12/01/2024",
-    antecedents: [
-      { categorie: "maladies_chroniques", details: "Hypertension" },
-      { categorie: "maladies_chroniques", details: "Diabète type 2" }
-    ],
-    traitements: [
-      { categorie: "medicaments", details: "Insuline", posologie: "2x/jour" },
-      { categorie: "medicaments", details: "Antihypertenseurs", posologie: "1x/jour" }
-    ]
-  },
-  { 
-    id: 2, 
-    nom: "Martin", 
-    prenom: "Jean", 
-    dateNaissance: "1958-07-22", 
-    sexe: "M",
-    adresse: "45 Avenue Victor Hugo, 69002 Lyon",
-    telephone: "0234567890",
-    numeroSecu: "158067523456789",
-    medecinReferent: "Dr. Bernard",
-    stade: "4", 
-    dernierRDV: "05/01/2024",
-    antecedents: [
-      { categorie: "maladies_chroniques", details: "Insuffisance cardiaque" }
-    ],
-    traitements: [
-      { categorie: "medicaments", details: "Diurétiques", posologie: "1x/jour" },
-      { categorie: "medicaments", details: "Bêtabloquants", posologie: "2x/jour" }
-    ]
-  },
-  { 
-    id: 3, 
-    nom: "Bernard", 
-    prenom: "Sophie", 
-    dateNaissance: "1972-11-30", 
-    sexe: "F",
-    adresse: "8 Rue du Commerce, 44000 Nantes",
-    telephone: "0345678901",
-    numeroSecu: "272117534567890",
-    medecinReferent: "Dr. Dubois",
-    stade: "3", 
-    dernierRDV: "15/01/2024",
-    antecedents: [
-      { categorie: "maladies_chroniques", details: "Anémie chronique" }
-    ],
-    traitements: [
-      { categorie: "medicaments", details: "Fer injectable", posologie: "1x/semaine" },
-      { categorie: "medicaments", details: "EPO", posologie: "3x/semaine" }
-    ]
-  }
-];
-
 export default function PatientsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [patients, setPatients] = useState(mockPatients);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { patients, loading, error, fetchPatients, createPatient, searchPatients, deletePatient } = usePatients();
   const [newPatient, setNewPatient] = useState({
     nom: '',
     prenom: '',
-    dateNaissance: '',
+    date_naissance: '',
     sexe: '',
     adresse: '',
     telephone: '',
-    numeroSecu: '',
-    medecinReferent: '',
+    email: '',
+    numero_secu: '',
+    medecin_referent: '',
     stade: '',
     antecedents: [],
     traitements: []
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [nouvelAntecedent, setNouvelAntecedent] = useState({
     categorie: '',
     details: ''
@@ -133,18 +74,18 @@ export default function PatientsPage() {
     posologie: ''
   });
 
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
+
   const handleSearch = (value) => {
     setSearchTerm(value);
-    const filtered = mockPatients.filter(patient => 
-      patient.nom.toLowerCase().includes(value.toLowerCase()) ||
-      patient.prenom.toLowerCase().includes(value.toLowerCase()) ||
-      patient.numeroSecu.includes(value)
-    );
-    setPatients(filtered);
   };
 
-  const handleNewPatient = () => {
-    if (!newPatient.nom || !newPatient.prenom || !newPatient.dateNaissance || !newPatient.numeroSecu) {
+  const filteredPatients = searchPatients(searchTerm);
+
+  const handleNewPatient = async () => {
+    if (!newPatient.nom || !newPatient.prenom || !newPatient.date_naissance || !newPatient.numero_secu) {
       toast({
         title: "Erreur de validation",
         description: "Veuillez remplir tous les champs obligatoires",
@@ -153,35 +94,71 @@ export default function PatientsPage() {
       return;
     }
 
-    const newId = patients.length + 1;
-    const patient = {
-      id: newId,
-      ...newPatient,
-      dernierRDV: new Date().toLocaleDateString('fr-FR')
-    };
-    setPatients([...patients, patient]);
-    setNewPatient({
-      nom: '',
-      prenom: '',
-      dateNaissance: '',
-      sexe: '',
-      adresse: '',
-      telephone: '',
-      numeroSecu: '',
-      medecinReferent: '',
-      stade: '',
-      antecedents: [],
-      traitements: []
-    });
-    setDialogOpen(false);
-    toast({
-      title: "Patient ajouté",
-      description: "Le nouveau patient a été enregistré avec succès"
-    });
+    setIsSubmitting(true);
+    
+    try {
+      const result = await createPatient(newPatient);
+      
+      if (result.success) {
+        setNewPatient({
+          nom: '',
+          prenom: '',
+          date_naissance: '',
+          sexe: '',
+          adresse: '',
+          telephone: '',
+          email: '',
+          numero_secu: '',
+          medecin_referent: '',
+          stade: '',
+          antecedents: [],
+          traitements: []
+        });
+        setDialogOpen(false);
+        toast({
+          title: "Patient ajouté",
+          description: "Le nouveau patient a été enregistré avec succès"
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: typeof result.error === 'object' 
+            ? Object.values(result.error).flat().join(', ')
+            : result.error,
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleViewDossier = (patientId) => {
     router.push(`/dossiers?patient=${patientId}`);
+  };
+
+  const handleDeletePatient = async (patientId, patientName) => {
+    setIsDeleting(true);
+    try {
+      const result = await deletePatient(patientId);
+      
+      if (result.success) {
+        toast({
+          title: "Patient supprimé",
+          description: `Le patient ${patientName} a été supprimé avec succès`
+        });
+      } else {
+        toast({
+          title: "Erreur",
+          description: typeof result.error === 'object' 
+            ? Object.values(result.error).flat().join(', ')
+            : result.error,
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const ajouterAntecedent = () => {
@@ -272,27 +249,30 @@ export default function PatientsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dateNaissance" className="font-medium">Date de naissance*</Label>
+                <Label htmlFor="date_naissance" className="font-medium">Date de naissance*</Label>
                 <Input
-                  id="dateNaissance"
+                  id="date_naissance"
                   type="date"
-                  value={newPatient.dateNaissance}
-                  onChange={(e) => setNewPatient({...newPatient, dateNaissance: e.target.value})}
+                  value={newPatient.date_naissance}
+                  onChange={(e) => setNewPatient({...newPatient, date_naissance: e.target.value})}
                   className="w-full"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="sexe" className="font-medium">Sexe*</Label>
-                <select
+                <Select
                   id="sexe"
-                  className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
                   value={newPatient.sexe}
-                  onChange={(e) => setNewPatient({...newPatient, sexe: e.target.value})}
+                  onValueChange={(value) => setNewPatient({...newPatient, sexe: value})}
                 >
-                  <option value="">Sélectionner</option>
-                  <option value="M">Masculin</option>
-                  <option value="F">Féminin</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Masculin</SelectItem>
+                    <SelectItem value="F">Féminin</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="adresse" className="font-medium">Adresse</Label>
@@ -314,20 +294,30 @@ export default function PatientsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="numeroSecu" className="font-medium">Numéro de Sécurité Sociale*</Label>
+                <Label htmlFor="email" className="font-medium">Email</Label>
                 <Input
-                  id="numeroSecu"
-                  value={newPatient.numeroSecu}
-                  onChange={(e) => setNewPatient({...newPatient, numeroSecu: e.target.value})}
+                  id="email"
+                  type="email"
+                  value={newPatient.email}
+                  onChange={(e) => setNewPatient({...newPatient, email: e.target.value})}
                   className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="medecinReferent" className="font-medium">Médecin Référent</Label>
+                <Label htmlFor="numero_secu" className="font-medium">Numéro de Sécurité Sociale*</Label>
                 <Input
-                  id="medecinReferent"
-                  value={newPatient.medecinReferent}
-                  onChange={(e) => setNewPatient({...newPatient, medecinReferent: e.target.value})}
+                  id="numero_secu"
+                  value={newPatient.numero_secu}
+                  onChange={(e) => setNewPatient({...newPatient, numero_secu: e.target.value})}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="medecin_referent" className="font-medium">Médecin Référent</Label>
+                <Input
+                  id="medecin_referent"
+                  value={newPatient.medecin_referent}
+                  onChange={(e) => setNewPatient({...newPatient, medecin_referent: e.target.value})}
                   className="w-full"
                 />
               </div>
@@ -347,10 +337,10 @@ export default function PatientsPage() {
                 <Label className="font-medium">Antécédents Médicaux</Label>
                 <div className="space-y-4">
                   {newPatient.antecedents.map((antecedent, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                    <div key={index} className="flex items-center gap-2 p-2 bg-secondary rounded-md">
                       <div className="flex-1">
                         <p className="font-medium">{ANTECEDENT_CATEGORIES[antecedent.categorie]}</p>
-                        <p className="text-sm text-gray-600">{antecedent.details}</p>
+                        <p className="text-sm text-gray-400">{antecedent.details}</p>
                       </div>
                       <Button
                         variant="ghost"
@@ -363,16 +353,19 @@ export default function PatientsPage() {
                   ))}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <select
-                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                      <Select
                         value={nouvelAntecedent.categorie}
-                        onChange={(e) => setNouvelAntecedent({...nouvelAntecedent, categorie: e.target.value})}
+                        onValueChange={(value) => setNouvelAntecedent({...nouvelAntecedent, categorie: value})}
                       >
-                        <option value="">Sélectionner une catégorie</option>
-                        {Object.entries(ANTECEDENT_CATEGORIES).map(([key, value]) => (
-                          <option key={key} value={key}>{value}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner une catégorie" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(ANTECEDENT_CATEGORIES).map(([key, value]) => (
+                            <SelectItem key={key} value={key}>{value}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex gap-2">
                       <Input
@@ -395,10 +388,10 @@ export default function PatientsPage() {
                 <Label className="font-medium">Traitements en cours</Label>
                 <div className="space-y-4">
                   {newPatient.traitements.map((traitement, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                    <div key={index} className="flex items-center gap-2 p-2 bg-secondary rounded-md">
                       <div className="flex-1">
                         <p className="font-medium">{TREATMENT_CATEGORIES[traitement.categorie]}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-400">
                           {traitement.details}
                           <span className="ml-2 text-blue-600">({traitement.posologie})</span>
                         </p>
@@ -414,16 +407,19 @@ export default function PatientsPage() {
                   ))}
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <select
-                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                      <Select
                         value={nouveauTraitement.categorie}
-                        onChange={(e) => setNouveauTraitement({...nouveauTraitement, categorie: e.target.value})}
+                        onValueChange={(value) => setNouveauTraitement({...nouveauTraitement, categorie: value})}
                       >
-                        <option value="">Sélectionner une catégorie</option>
-                        {Object.entries(TREATMENT_CATEGORIES).map(([key, value]) => (
-                          <option key={key} value={key}>{value}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner une catégorie" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TREATMENT_CATEGORIES).map(([key, value]) => (
+                            <SelectItem key={key} value={key}>{value}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <Input
                       placeholder="Nom du traitement"
@@ -449,8 +445,15 @@ export default function PatientsPage() {
               </div>
               <div className="col-span-2 sticky bottom-0 bg-background pt-4 pb-6">
                 <p className="text-sm text-muted-foreground mb-4">* Champs obligatoires</p>
-                <Button className="w-full" onClick={handleNewPatient}>
-                  Ajouter le patient
+                <Button className="w-full" onClick={handleNewPatient} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"></span>
+                      Enregistrement en cours...
+                    </>
+                  ) : (
+                    "Ajouter le patient"
+                  )}
                 </Button>
               </div>
             </div>
@@ -458,61 +461,103 @@ export default function PatientsPage() {
         </Dialog>
       </div>
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un patient (nom, prénom ou n° sécu)..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Liste des Patients</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Prénom</TableHead>
-                <TableHead>Date de Naissance</TableHead>
-                <TableHead>N° Sécu</TableHead>
-                <TableHead>Stade MRC</TableHead>
-                <TableHead>Dernier RDV</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {patients.map((patient) => (
-                <TableRow key={patient.id}>
-                  <TableCell>{patient.nom}</TableCell>
-                  <TableCell>{patient.prenom}</TableCell>
-                  <TableCell>{new Date(patient.dateNaissance).toLocaleDateString('fr-FR')}</TableCell>
-                  <TableCell>{patient.numeroSecu}</TableCell>
-                  <TableCell>{patient.stade}</TableCell>
-                  <TableCell>{patient.dernierRDV}</TableCell>
-                  <TableCell>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleViewDossier(patient.id)}
-                    >
-                      Voir Dossier
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle>Liste des Patients</CardTitle>
+            <div className="flex space-x-2">
+              <div className="flex w-full max-w-sm items-center space-x-2">
+                <Input
+                  placeholder="Rechercher un patient..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Prénom</TableHead>
+                    <TableHead>Date de naissance</TableHead>
+                    <TableHead>N° Sécurité Sociale</TableHead>
+                    <TableHead>Stade</TableHead>
+                    <TableHead>Dernier RDV</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center">
+                        Chargement des patients...
+                      </TableCell>
+                    </TableRow>
+                  ) : error ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-destructive">
+                        {error}
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredPatients.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center">
+                        Aucun patient trouvé
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPatients.map((patient) => (
+                      <TableRow key={patient.id}>
+                        <TableCell>{patient.nom}</TableCell>
+                        <TableCell>{patient.prenom}</TableCell>
+                        <TableCell>{new Date(patient.date_naissance).toLocaleDateString('fr-FR')}</TableCell>
+                        <TableCell>{patient.numero_secu}</TableCell>
+                        <TableCell>{patient.stade || 'Non défini'}</TableCell>
+                        <TableCell>
+                          {patient.visites?.length ? 
+                            new Date(patient.visites[patient.visites.length - 1].date).toLocaleDateString('fr-FR') : 
+                            'Aucune visite'
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleViewDossier(patient.id)}
+                            >
+                              Voir le dossier
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() => {
+                                if (window.confirm(`Êtes-vous sûr de vouloir supprimer le patient ${patient.nom} ${patient.prenom} ?`)) {
+                                  handleDeletePatient(patient.id, `${patient.nom} ${patient.prenom}`);
+                                }
+                              }}
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? (
+                                <span className="animate-spin">⏳</span>
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </DashboardLayout>
   );
 }

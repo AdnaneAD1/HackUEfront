@@ -5,11 +5,13 @@ const nextConfig = {
   },
   images: { 
     unoptimized: true,
-    domains: ['fonts.googleapis.com', 'fonts.gstatic.com']
+    domains: ['fonts.googleapis.com', 'fonts.gstatic.com', 'images.unsplash.com']
   },
-  // Remove experimental features that are causing issues
   experimental: {
-    swcMinify: true
+    swcMinify: true,
+    fontLoaders: [
+      { loader: '@next/font/google', options: { timeout: 10000 } }
+    ]
   }
 };
 

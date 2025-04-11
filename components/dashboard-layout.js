@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image';
 import { Button } from '@/components/ui/button'
 import { 
   LayoutDashboard, 
@@ -10,7 +11,8 @@ import {
   Settings,
   LogOut,
   GitBranch,
-  Menu
+  Menu,
+  Shield
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
@@ -20,12 +22,15 @@ import { MobileNavigation } from './mobile-navigation'
 import { useSwipeable } from 'react-swipeable'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDeviceType } from '@/hooks/use-device-type'
+import { useUserRole } from '@/hooks/use-user-role'
+import { useAuth } from '@/hooks/auth'
 
 export default function DashboardLayout({ children }) {
   const deviceType = useDeviceType()
   const [isSidebarOpen, setIsSidebarOpen] = useState(deviceType === 'desktop')
   const router = useRouter()
   const pathname = usePathname()
+  const { isAdmin } = useUserRole()
 
   useEffect(() => {
     setIsSidebarOpen(deviceType === 'desktop')
@@ -37,8 +42,10 @@ export default function DashboardLayout({ children }) {
     trackMouse: true
   });
 
+  const { logout } = useAuth()
+  
   const handleLogout = () => {
-    router.push('/')
+    logout()
   }
 
   const isActive = (path) => {
@@ -78,7 +85,13 @@ export default function DashboardLayout({ children }) {
       href: '/parametres',
       icon: Settings,
       label: 'Paramètres'
-    }
+    },
+    // Option d'administration uniquement visible pour les admins
+    ...(isAdmin() ? [{
+      href: '/admin',
+      icon: Shield,
+      label: 'Administration'
+    }] : [])
   ]
 
   const handleNavClick = () => {
@@ -94,8 +107,13 @@ export default function DashboardLayout({ children }) {
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}
     >
-      <div className="h-16 flex items-center justify-between px-4 border-b border-border bg-primary">
-        <h1 className="text-xl font-bold text-primary-foreground">CKDCARE</h1>
+      <div className="h-16 flex items-center justify-between px-4 border-b border-border bg-secondary">
+        <Image 
+          src="/logo.png" // Chemin de l'image dans /public
+          alt="Logo"
+          width={150} // Largeur du logo
+          height={150} // Hauteur du logo
+        />
         <Button
           variant="ghost"
           size="icon"
@@ -147,7 +165,12 @@ export default function DashboardLayout({ children }) {
       >
         <Menu className="h-5 w-5" />
       </Button>
-      <h1 className="text-xl font-bold">CKDCARE</h1>
+      <Image 
+        src="/logo.png" // Chemin de l'image dans /public
+        alt="Logo"
+        width={100} // Largeur du logo
+        height={100} // Hauteur du logo
+      />
     </header>
   )
 

@@ -10,35 +10,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, AlertCircle, Activity, Calendar } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
-
-const mockWorkflows = [
-  {
-    id: 1,
-    nom: "Suivi MRC Stade 3",
-    description: "Protocole de suivi pour patients en stade 3 de MRC",
-    stade: "3",
-    examensReguliers: [
-      { type: "Créatinine sérique", frequence: "3 mois" },
-      { type: "DFG", frequence: "3 mois" },
-      { type: "Albuminurie", frequence: "6 mois" }
-    ],
-    alertes: [
-      { indicateur: "DFG", condition: "<45", message: "Baisse significative du DFG" },
-      { indicateur: "Potassium", condition: ">5.5", message: "Hyperkaliémie" }
-    ]
-  }
-];
+import { useWorkflows } from '@/hooks/use-workflows';
 
 export default function WorkflowPageClient() {
   const { toast } = useToast();
-  const [workflows, setWorkflows] = useState(mockWorkflows);
+  const { workflows, isLoading, createWorkflow, updateWorkflow, deleteWorkflow } = useWorkflows();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(null); // Stocke l'ID du workflow en cours de suppression
   const [newWorkflow, setNewWorkflow] = useState({
     nom: '',
     description: '',
     stade: '',
-    examensReguliers: [],
+    examens_reguliers: [],
     alertes: []
   });
   const [nouvelExamen, setNouvelExamen] = useState({ type: '', frequence: '' });
@@ -55,7 +40,7 @@ export default function WorkflowPageClient() {
     }
     setNewWorkflow({
       ...newWorkflow,
-      examensReguliers: [...newWorkflow.examensReguliers, { ...nouvelExamen }]
+      examens_reguliers: [...newWorkflow.examens_reguliers, { ...nouvelExamen }]
     });
     setNouvelExamen({ type: '', frequence: '' });
   };
@@ -76,7 +61,7 @@ export default function WorkflowPageClient() {
     setNouvelleAlerte({ indicateur: '', condition: '', message: '' });
   };
 
-  const handleSaveWorkflow = () => {
+  const handleSaveWorkflow = async () => {
     if (!newWorkflow.nom || !newWorkflow.stade) {
       toast({
         title: "Erreur",
@@ -86,47 +71,71 @@ export default function WorkflowPageClient() {
       return;
     }
 
-    if (editingWorkflow) {
-      setWorkflows(workflows.map(w => 
-        w.id === editingWorkflow.id ? { ...newWorkflow, id: editingWorkflow.id } : w
-      ));
-      toast({
-        title: "Workflow modifié",
-        description: "Le workflow a été mis à jour avec succès"
-      });
-    } else {
-      const newId = workflows.length + 1;
-      setWorkflows([...workflows, { ...newWorkflow, id: newId }]);
-      toast({
-        title: "Workflow créé",
-        description: "Le nouveau workflow a été créé avec succès"
-      });
-    }
+    setIsSaving(true);
+    try {
+      let success;
+      if (editingWorkflow) {
+        success = await updateWorkflow(editingWorkflow.id, newWorkflow);
+      } else {
+        success = await createWorkflow(newWorkflow);
+      }
 
-    setDialogOpen(false);
-    setNewWorkflow({
-      nom: '',
-      description: '',
-      stade: '',
-      examensReguliers: [],
-      alertes: []
-    });
-    setEditingWorkflow(null);
+      if (success) {
+        setDialogOpen(false);
+        setNewWorkflow({
+          nom: '',
+          description: '',
+          stade: '',
+          examens_reguliers: [],
+          alertes: []
+        });
+        setEditingWorkflow(null);
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEdit = (workflow) => {
     setEditingWorkflow(workflow);
-    setNewWorkflow(workflow);
+    setNewWorkflow({
+      nom: workflow.nom,
+      description: workflow.description,
+      stade: workflow.stade,
+      examens_reguliers: workflow.examens_reguliers,
+      alertes: workflow.alertes
+    });
     setDialogOpen(true);
   };
 
-  const handleDelete = (workflowId) => {
-    setWorkflows(workflows.filter(w => w.id !== workflowId));
-    toast({
-      title: "Workflow supprimé",
-      description: "Le workflow a été supprimé avec succès"
+  const handleNewWorkflow = () => {
+    setEditingWorkflow(null);
+    setNewWorkflow({
+      nom: '',
+      description: '',
+      stade: '',
+      examens_reguliers: [],
+      alertes: []
     });
+    setDialogOpen(true);
   };
+
+  const handleDelete = async (workflowId) => {
+    setIsDeleting(workflowId);
+    try {
+      await deleteWorkflow(workflowId);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div>Chargement...</div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -137,7 +146,7 @@ export default function WorkflowPageClient() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={handleNewWorkflow}>
               <Plus className="mr-2 h-4 w-4" />
               Nouveau Workflow
             </Button>
@@ -182,12 +191,22 @@ export default function WorkflowPageClient() {
 
               <div className="space-y-4">
                 <Label>Examens Réguliers</Label>
-                {newWorkflow.examensReguliers.map((examen, index) => (
+                {newWorkflow.examens_reguliers.map((examen, index) => (
                   <div key={index} className="flex items-center gap-2 p-2 bg-secondary rounded-md">
                     <Activity className="h-4 w-4 text-muted-foreground" />
                     <span className="flex-1">
                       {examen.type} - Tous les {examen.frequence}
                     </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setNewWorkflow({
+                        ...newWorkflow,
+                        examens_reguliers: newWorkflow.examens_reguliers.filter((_, i) => i !== index)
+                      })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
                 <div className="flex gap-2">
@@ -215,6 +234,16 @@ export default function WorkflowPageClient() {
                     <span className="flex-1">
                       {alerte.indicateur} {alerte.condition} : {alerte.message}
                     </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setNewWorkflow({
+                        ...newWorkflow,
+                        alertes: newWorkflow.alertes.filter((_, i) => i !== index)
+                      })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
                 <div className="grid grid-cols-3 gap-2">
@@ -239,8 +268,18 @@ export default function WorkflowPageClient() {
                 </Button>
               </div>
 
-              <Button onClick={handleSaveWorkflow}>
-                {editingWorkflow ? "Mettre à jour" : "Créer le Workflow"}
+              <Button onClick={handleSaveWorkflow} disabled={isSaving}>
+                {isSaving ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" fill="currentColor" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S16.627 6 12 6z" />
+                    </svg>
+                    {editingWorkflow ? "Mise à jour..." : "Création..."}
+                  </div>
+                ) : (
+                  editingWorkflow ? "Mettre à jour" : "Créer le Workflow"
+                )}
               </Button>
             </div>
           </DialogContent>
@@ -265,8 +304,17 @@ export default function WorkflowPageClient() {
                   <Button variant="outline" size="sm" onClick={() => handleEdit(workflow)}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleDelete(workflow.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                  <Button variant="outline" size="sm" onClick={() => handleDelete(workflow.id)} disabled={isDeleting === workflow.id}>
+                    {isDeleting === workflow.id ? (
+                      <div className="flex items-center justify-center">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" fill="currentColor" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S16.627 6 12 6z" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -279,7 +327,7 @@ export default function WorkflowPageClient() {
                     Examens Réguliers
                   </h3>
                   <div className="space-y-2">
-                    {workflow.examensReguliers.map((examen, index) => (
+                    {workflow.examens_reguliers.map((examen, index) => (
                       <div key={index} className="p-2 bg-secondary rounded-md">
                         <span className="font-medium">{examen.type}</span>
                         <span className="text-muted-foreground"> - Tous les {examen.frequence}</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,15 +8,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { User, Bell, Shield, Palette } from 'lucide-react';
+import { User, Bell, Shield, Palette, Eye, EyeOff } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from '@/lib/utils';
 import { useDeviceType } from '@/hooks/use-device-type';
+import { useMedecin } from '@/hooks/use-medecin';
+import { useAuth } from '@/hooks/auth';
 
 export default function ParametresPage() {
   const { toast } = useToast();
   const deviceType = useDeviceType();
   const isMobile = deviceType === 'mobile';
+  const { medecin, isLoading, updateMedecinProfile, updatePassword } = useMedecin();
+  const { user } = useAuth();
+
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -25,28 +38,72 @@ export default function ParametresPage() {
   });
 
   const [userInfo, setUserInfo] = useState({
-    name: 'Dr. Jean Dupont',
-    email: 'jean.dupont@hopital.fr',
-    specialite: 'Néphrologie'
+    name: '',
+    email: '',
+    specialite: ''
   });
 
   const [passwords, setPasswords] = useState({
-    current: '',
-    new: '',
-    confirm: ''
+    current_password: '',
+    password: '',
+    password_confirmation: ''
   });
 
   const [theme, setTheme] = useState('light');
 
-  const handleSaveProfile = () => {
-    toast({
-      title: "Profil mis à jour",
-      description: "Vos informations ont été sauvegardées avec succès",
-    });
+  // Mettre à jour les informations utilisateur lorsque les données de l'utilisateur connecté sont chargées
+  useEffect(() => {
+    if (user) {
+      setUserInfo(prev => ({
+        ...prev,
+        name: user.name || '',
+        email: user.email || ''
+      }));
+    }
+  }, [user]);
+
+  // Mettre à jour les informations utilisateur lorsque les données du médecin sont chargées
+  useEffect(() => {
+    if (medecin) {
+      setUserInfo(prev => ({
+        ...prev,
+        specialite: medecin.specialite || ''
+      }));
+      
+      setNotifications({
+        email: medecin.preferences_notifications?.email || false,
+        desktop: medecin.preferences_notifications?.desktop || false,
+        urgent: medecin.preferences_notifications?.urgent || false
+      });
+    }
+  }, [medecin]);
+
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handlePasswordChange = () => {
-    if (passwords.new !== passwords.confirm) {
+  const handleSaveProfile = async () => {
+    const profileData = {
+      name: userInfo.name,
+      email: userInfo.email,
+      specialite: userInfo.specialite,
+      preferences_notifications: {
+        email: notifications.email,
+        desktop: notifications.desktop,
+        urgent: notifications.urgent
+      }
+    };
+    
+    setIsUpdatingProfile(true);
+    try {
+      await updateMedecinProfile(profileData);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (passwords.password !== passwords.password_confirmation) {
       toast({
         title: "Erreur",
         description: "Les mots de passe ne correspondent pas",
@@ -54,7 +111,7 @@ export default function ParametresPage() {
       });
       return;
     }
-    if (passwords.new.length < 8) {
+    if (passwords.password.length < 8) {
       toast({
         title: "Erreur",
         description: "Le mot de passe doit contenir au moins 8 caractères",
@@ -62,11 +119,16 @@ export default function ParametresPage() {
       });
       return;
     }
-    toast({
-      title: "Mot de passe modifié",
-      description: "Votre mot de passe a été mis à jour avec succès",
-    });
-    setPasswords({ current: '', new: '', confirm: '' });
+    
+    setIsChangingPassword(true);
+    try {
+      const success = await updatePassword(passwords);
+      if (success) {
+        setPasswords({ current_password: '', password: '', password_confirmation: '' });
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleThemeChange = (newTheme) => {
@@ -81,11 +143,8 @@ export default function ParametresPage() {
 
   const handleNotificationChange = (type, checked) => {
     setNotifications(prev => ({ ...prev, [type]: checked }));
-    toast({
-      title: "Préférences de notifications mises à jour",
-      description: `Les notifications ${type} ont été ${checked ? 'activées' : 'désactivées'}`,
-    });
   };
+
 
   return (
     <DashboardLayout>
@@ -125,34 +184,48 @@ export default function ParametresPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nom complet</Label>
-                <Input 
-                  id="name" 
+                <Input
+                  id="name"
                   value={userInfo.name}
-                  onChange={(e) => setUserInfo({...userInfo, name: e.target.value})}
+                  onChange={(e) => setUserInfo({ ...userInfo, name: e.target.value })}
+                  required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
+                <Input
+                  id="email"
+                  type="email"
                   value={userInfo.email}
-                  onChange={(e) => setUserInfo({...userInfo, email: e.target.value})}
+                  onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
+                  required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="specialite">Spécialité</Label>
-                <Input 
-                  id="specialite" 
+                <Input
+                  id="specialite"
                   value={userInfo.specialite}
-                  onChange={(e) => setUserInfo({...userInfo, specialite: e.target.value})}
+                  onChange={(e) => setUserInfo({ ...userInfo, specialite: e.target.value })}
+                  required
                 />
               </div>
-              <Button 
+              <Button
                 onClick={handleSaveProfile}
                 className={cn(isMobile && "w-full")}
+                disabled={isUpdatingProfile}
               >
-                Sauvegarder les modifications
+                {isUpdatingProfile ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" fill="currentColor" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S16.627 6 12 6z" />
+                    </svg>
+                    Enregistrement en cours...
+                  </div>
+                ) : (
+                  "Sauvegarder les modifications"
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -221,36 +294,100 @@ export default function ParametresPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="current-password">Mot de passe actuel</Label>
-                <Input 
-                  id="current-password" 
-                  type="password"
-                  value={passwords.current}
-                  onChange={(e) => setPasswords({...passwords, current: e.target.value})}
-                />
+                <div className="relative">
+                  <Input
+                    id="current-password"
+                    type={showPasswords.current ? "text" : "password"}
+                    value={passwords.current_password}
+                    className="pr-10"
+                    onChange={(e) => setPasswords({ ...passwords, current_password: e.target.value })}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => togglePasswordVisibility('current')}
+                  >
+                    {showPasswords.current ? (
+                      <EyeOff className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-500" />
+                    )}
+                  </Button>
+                </div>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nouveau mot de passe</Label>
-                <Input 
-                  id="new-password" 
-                  type="password"
-                  value={passwords.new}
-                  onChange={(e) => setPasswords({...passwords, new: e.target.value})}
-                />
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPasswords.new ? "text" : "password"}
+                    value={passwords.password}
+                    className="pr-10"
+                    onChange={(e) => setPasswords({ ...passwords, password: e.target.value })}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => togglePasswordVisibility('new')}
+                  >
+                    {showPasswords.new ? (
+                      <EyeOff className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-500" />
+                    )}
+                  </Button>
+                </div>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmer le mot de passe</Label>
-                <Input 
-                  id="confirm-password" 
-                  type="password"
-                  value={passwords.confirm}
-                  onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showPasswords.confirm ? "text" : "password"}
+                    value={passwords.password_confirmation}
+                    className="pr-10"
+                    onChange={(e) => setPasswords({ ...passwords, password_confirmation: e.target.value })}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => togglePasswordVisibility('confirm')}
+                  >
+                    {showPasswords.confirm ? (
+                      <EyeOff className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-500" />
+                    )}
+                  </Button>
+                </div>
               </div>
-              <Button 
+              <Button
                 onClick={handlePasswordChange}
                 className={cn(isMobile && "w-full")}
+                disabled={isChangingPassword}
               >
-                Changer le mot de passe
+                {isChangingPassword ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" fill="currentColor" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S16.627 6 12 6z" />
+                    </svg>
+                    Modification en cours...
+                  </div>
+                ) : (
+                  "Changer le mot de passe"
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -268,21 +405,21 @@ export default function ParametresPage() {
                   "flex gap-2",
                   isMobile ? "flex-col" : "flex-row"
                 )}>
-                  <Button 
+                  <Button
                     variant={theme === 'light' ? 'default' : 'outline'}
                     onClick={() => handleThemeChange('light')}
                     className={cn(isMobile && "w-full")}
                   >
                     Clair
                   </Button>
-                  <Button 
+                  <Button
                     variant={theme === 'dark' ? 'default' : 'outline'}
                     onClick={() => handleThemeChange('dark')}
                     className={cn(isMobile && "w-full")}
                   >
                     Sombre
                   </Button>
-                  <Button 
+                  <Button
                     variant={theme === 'system' ? 'default' : 'outline'}
                     onClick={() => handleThemeChange('system')}
                     className={cn(isMobile && "w-full")}
